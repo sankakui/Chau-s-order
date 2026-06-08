@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- ─── SEO: sửa title & description tại đây hoặc trong config.js ─── -->
+  <title>OrderHub VN — Order hàng Hàn, Nhật, Mỹ/EU về Việt Nam</title>
+  <meta name="description" content="Dịch vụ order trung gian uy tín từ Hàn Quốc, Nhật Bản, Mỹ và Châu Âu về Việt Nam. Phí thấp, kiểm hàng kỹ, cập nhật tracking liên tục." />
+
+  <!-- ─── Tabler Icons ──────────────────────────────────────────────── -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.0/dist/tabler-icons.min.css" />
+
+  <!-- ─── Stylesheet ───────────────────────────────────────────────── -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- ─── Config phải load TRƯỚC app.js ───────────────────────────── -->
+  <script src="config.js"></script>
+</head>
+<body>
+
+<div class="page-wrapper" id="app">
+  <!-- Nội dung được render bởi app.js -->
+  <noscript>
+    <p style="text-align:center; padding:2rem; color:#888;">
+      Vui lòng bật JavaScript để xem trang này.
+    </p>
+  </noscript>
+</div>
+
+<script>
+/* ============================================================
+   APP.JS — Logic render (không cần chỉnh file này)
+   Mọi nội dung tuỳ chỉnh nằm trong config.js
+   ============================================================ */
+
+const cfg = SHOP_CONFIG;
+const app = document.getElementById('app');
+
+/* ─── helpers ─────────────────────────────────────────────── */
+const el = (tag, cls, html) => {
+  const e = document.createElement(tag);
+  if (cls)  e.className = cls;
+  if (html) e.innerHTML = html;
+  return e;
+};
+
+const fmt = n =>
+  Math.round(n).toLocaleString('vi-VN') + 'đ';
+
+const fmtKg = n =>
+  parseFloat(n).toLocaleString('vi-VN', { minimumFractionDigits: 0, maximumFractionDigits: 1 });
+
+function getServiceFeeRate(routeId, price) {
+  for (const tier of cfg.serviceFees) {
+    if (price < tier.maxValue) return tier.rates[routeId] / 100;
+  }
+  return cfg.serviceFees[cfg.serviceFees.length - 1].rates[routeId] / 100;
+}
+
+function sectionTitle(icon, text) {
+  return `<div class="section-title"><i class="ti ti-${icon}" aria-hidden="true"></i>${text}</div>`;
+}
+
+/* ─── 1. HERO ─────────────────────────────────────────────── */
+function renderHero() {
+  const flags = cfg.routes
+    .map(r => `<div class="flag-pill">${r.flag} ${r.label}</div>`)
+    .join('');
+
+  const stats = cfg.stats
+    .map(s => `<div class="hero-stat"><div class="num">${s.num}</div><div class="lbl">${s.label}</div></div>`)
+    .join('');
+
+  const div = el('div', 'hero');
+  div.innerHTML = `
+    <div class="hero-noise" aria-hidden="true"></div>
+    <div class="hero-orb-1" aria-hidden="true"></div>
+    <div class="hero-orb-2" aria-hidden="true"></div>
+    <div class="hero-badge"><i class="ti ti-plane" aria-hidden="true"></i> Dịch vụ order trung gian uy tín</div>
+    <h1>${cfg.tagline}</h1>
+    <p class="hero-desc">${cfg.description}</p>
+    <div class="hero-flags">${flags}</div>
+    <div class="hero-stats">${stats}</div>
+  `;
+  return div;
+}
+
+/* ─── 2. QUY TRÌNH ────────────────────────────────────────── */
+function renderSteps() {
+  const steps = [
+    { title: 'Gửi link sản phẩm',
+      desc:  'Bạn gửi link từ ' + cfg.routes.map(r => r.sites).join(', ') + '… kèm size, màu, số lượng muốn mua.' },
+    { title: 'Nhận báo giá chi tiết',
+      desc:  'Mình báo tổng chi phí gồm giá hàng, phí dịch vụ, cước vận chuyển dự kiến trong vòng 1–2 giờ.' },
+    { title: 'Đặt cọc & mình tiến hành mua',
+      desc:  `Bạn cọc ${cfg.payment.depositPercent}% tổng đơn. Mình đặt hàng ngay và cập nhật tracking liên tục.` },
+    { title: 'Hàng về kho, kiểm & đóng gói',
+      desc:  'Mình kiểm tra kỹ, quay video unbox nếu cần, sau đó đóng gói giao về kho nội địa.' },
+    { title: `Thanh toán ${cfg.payment.remainPercent}% còn lại & nhận hàng`,
+      desc:  'Bạn thanh toán số còn lại, mình ship nội địa hoặc bạn tự pick up. Done!' },
+  ];
+
+  const html = steps.map((s, i) => `
+    <div class="step">
+      <div class="step-num">${i + 1}</div>
+      <div class="step-body">
+        <strong>${s.title}</strong>
+        <p>${s.desc}</p>
+      </div>
+    </div>
+  `).join('');
+
+  const div = el('div', 'card');
+  div.innerHTML = sectionTitle('list-check', 'Quy trình đặt hàng') +
+    `<div class="steps">${html}</div>`;
+  return div;
+}
+
+/* ─── 3. BẢNG PHÍ DỊCH VỤ ────────────────────────────────── */
+function renderServiceFees() {
+  const badgeClass = pct => pct >= 9 ? 'badge-red' : pct >= 6 ? 'badge-orange' : 'badge-green';
+
+  const headers = ['<th>Giá trị đơn hàng</th>',
+    ...cfg.routes.map(r => `<th>${r.flag} ${r.label}</th>`)
+  ].join('');
+
+  const rows = cfg.serviceFees.map(tier => {
+    const cells = cfg.routes.map(r => {
+      const pct = tier.rates[r.id];
+      return `<td><span class="badge ${badgeClass(pct)}">${pct}%</span></td>`;
+    }).join('');
+    return `<tr><td style="color:var(--text-3);font-size:12px;">${tier.label}</td>${cells}</tr>`;
+  }).join('');
+
+  const div = el('div', 'card');
+  div.innerHTML = sectionTitle('coin', 'Phí dịch vụ order') + `
+    <table class="fee-table">
+      <thead><tr>${headers}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p class="note">✱ Phí tính trên giá gốc sản phẩm (đã quy đổi VND), chưa bao gồm cước vận chuyển quốc tế.</p>
+  `;
+  return div;
+}
+
+/* ─── 4. CƯỚC VẬN CHUYỂN ─────────────────────────────────── */
+function renderShipping() {
+  const cards = cfg.routes.map(r => {
+    const s = cfg.shipping[r.id];
+    return `
+      <div class="ship-card">
+        <div class="ship-card-country">${r.flag} ${r.label} → 🇻🇳</div>
+        <div class="ship-row">
+          <span class="type"><i class="ti ti-plane" aria-hidden="true"></i> Đường bay</span>
+          <span class="price">${(s.air.pricePerKg / 1000).toLocaleString('vi-VN')}k/kg</span>
+        </div>
+        <div class="ship-row">
+          <span class="type"><i class="ti ti-ship" aria-hidden="true"></i> Đường biển</span>
+          <span class="price">${(s.sea.pricePerKg / 1000).toLocaleString('vi-VN')}k/kg</span>
+        </div>
+        <div class="ship-note">
+          ✈ Bay: ${s.air.transitDays} · 🚢 Biển: ${s.sea.transitDays}<br>
+          Tối thiểu tính ${fmtKg(s.minWeight)}kg/kiện
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  const div = el('div');
+  div.innerHTML = `
+    <div class="section-title" style="margin-bottom:.75rem;">
+      <i class="ti ti-plane" aria-hidden="true" style="color:var(--primary);font-size:17px;"></i>
+      Cước vận chuyển quốc tế
+    </div>
+    <div class="ship-grid">${cards}</div>
+    <p class="note" style="margin-top:8px;">
+      ✱ Cước tính theo khối lượng thực hoặc khối lượng quy đổi (D×R×C÷5000), lấy số nào lớn hơn.
+      Hàng cồng kềnh có thể phát sinh phụ phí thể tích.
+    </p>
+  `;
+  return div;
+}
+
+/* ─── 5. TÍNH PHÍ NHANH ───────────────────────────────────── */
+function renderCalc() {
+  const routeOpts = cfg.routes
+    .map(r => `<option value="${r.id}">${r.flag} ${r.label}</option>`)
+    .join('');
+
+  const div = el('div', 'card');
+  div.innerHTML = sectionTitle('calculator', 'Tính phí nhanh') + `
+    <div class="calc-box">
+      <div class="calc-grid">
+        <div class="calc-field">
+          <label for="c-price">Giá hàng (VND)</label>
+          <input type="number" id="c-price" placeholder="vd: 3000000" min="0" />
+        </div>
+        <div class="calc-field">
+          <label for="c-route">Tuyến</label>
+          <select id="c-route">${routeOpts}</select>
+        </div>
+        <div class="calc-field">
+          <label for="c-weight">Cân nặng (kg)</label>
+          <input type="number" id="c-weight" placeholder="vd: 1.5" min="0" step="0.1" />
+        </div>
+        <div class="calc-field">
+          <label for="c-ship">Hình thức vận chuyển</label>
+          <select id="c-ship">
+            <option value="air">✈ Đường bay</option>
+            <option value="sea">🚢 Đường biển</option>
+          </select>
+        </div>
+      </div>
+      <button class="calc-btn" id="calcBtn">Tính phí ngay →</button>
+      <div class="calc-result" id="calcResult">
+        <div class="result-row"><span class="rl">Giá hàng</span><span class="rv" id="r-price">—</span></div>
+        <div class="result-row"><span class="rl">Phí dịch vụ</span><span class="rv" id="r-fee">—</span></div>
+        <div class="result-row"><span class="rl">Cước vận chuyển</span><span class="rv" id="r-ship">—</span></div>
+        <div class="result-total"><span>Tổng ước tính</span><span id="r-total">—</span></div>
+        <p class="result-note">✱ Chưa bao gồm thuế nhập khẩu (nếu có). Tỷ giá theo Vietcombank ngày đặt cọc.</p>
+      </div>
+    </div>
+  `;
+
+  div.querySelector('#calcBtn').addEventListener('click', () => {
+    const price  = parseFloat(div.querySelector('#c-price').value)  || 0;
+    const weight = parseFloat(div.querySelector('#c-weight').value) || 0;
+    const route  = div.querySelector('#c-route').value;
+    const stype  = div.querySelector('#c-ship').value;
+
+    if (!price || !weight) {
+      alert('Vui lòng nhập giá hàng và cân nặng!');
+      return;
+    }
+
+    const feeRate    = getServiceFeeRate(route, price);
+    const fee        = price * feeRate;
+    const minW       = cfg.shipping[route].minWeight;
+    const billWeight = Math.max(weight, minW);
+    const ship       = billWeight * cfg.shipping[route][stype].pricePerKg;
+    const total      = price + fee + ship;
+
+    div.querySelector('#r-price').textContent = fmt(price);
+    div.querySelector('#r-fee').textContent   = fmt(fee) + ` (${(feeRate * 100).toFixed(0)}%)`;
+    div.querySelector('#r-ship').textContent  = fmt(ship);
+    div.querySelector('#r-total').textContent = fmt(total);
+    div.querySelector('#calcResult').classList.add('show');
+  });
+
+  return div;
+}
+
+/* ─── 6. THANH TOÁN ───────────────────────────────────────── */
+function renderPayment() {
+  const p = cfg.payment;
+  const div = el('div', 'card');
+  div.innerHTML = sectionTitle('credit-card', 'Quy định thanh toán') + `
+    <div class="pay-grid">
+      <div class="pay-card highlight">
+        <div class="lbl">Đặt cọc khi xác nhận đơn</div>
+        <div class="val-big val">${p.depositPercent}%</div>
+      </div>
+      <div class="pay-card highlight">
+        <div class="lbl">Thanh toán khi hàng về kho</div>
+        <div class="val-big val">${p.remainPercent}%</div>
+      </div>
+      <div class="pay-card">
+        <div class="lbl">Phương thức</div>
+        <div class="val">${p.method}</div>
+      </div>
+      <div class="pay-card">
+        <div class="lbl">Tỷ giá quy đổi</div>
+        <div class="val">${p.exchangeRateNote}</div>
+      </div>
+      <div class="pay-card" style="grid-column:1/-1">
+        <div class="lbl">Lưu kho miễn phí</div>
+        <div class="val">${p.freeStorageDays} ngày · Sau đó ${fmt(p.storageFeePerDay)}/ngày/kiện</div>
+      </div>
+    </div>
+  `;
+  return div;
+}
+
+/* ─── 7. ĐIỀU KHOẢN ───────────────────────────────────────── */
+function renderRules() {
+  const items = cfg.rules.map(r => `
+    <div class="rule-item">
+      <i class="ti ti-${r.icon}" aria-hidden="true"></i>
+      <div class="rule-text">
+        <strong>${r.title}</strong>
+        <p>${r.content}</p>
+      </div>
+    </div>
+  `).join('');
+
+  const div = el('div', 'card');
+  div.innerHTML = sectionTitle('shield-check', 'Điều khoản giao dịch') +
+    `<div class="rules-list">${items}</div>`;
+  return div;
+}
+
+/* ─── 8. HÀNG CẤM ─────────────────────────────────────────── */
+function renderForbidden() {
+  const items = cfg.forbidden
+    .map(f => `<div class="forbidden-item"><i class="ti ti-ban" aria-hidden="true"></i>${f}</div>`)
+    .join('');
+
+  const div = el('div', 'card');
+  div.innerHTML = sectionTitle('ban', 'Hàng không nhận order') +
+    `<div class="forbidden-grid">${items}</div>`;
+  return div;
+}
+
+/* ─── 9. LIÊN HỆ CTA ──────────────────────────────────────── */
+function renderContact() {
+  const c = cfg.contact;
+  const div = el('div', 'contact-cta');
+  div.innerHTML = `
+    <div class="orb" aria-hidden="true"></div>
+    <h2>Sẵn sàng đặt hàng? Nhắn ngay!</h2>
+    <p>Phản hồi trong 30 phút · Tư vấn miễn phí · ${c.hours}</p>
+    <div class="contact-btns">
+      <a class="btn-contact btn-white" href="https://zalo.me/${c.zalo.replace(/\s/g,'')}" target="_blank" rel="noopener">
+        <i class="ti ti-brand-telegram" aria-hidden="true"></i> Zalo: ${c.zalo}
+      </a>
+      <a class="btn-contact btn-outline" href="https://t.me/${c.telegram.replace('@','')}" target="_blank" rel="noopener">
+        <i class="ti ti-send" aria-hidden="true"></i> Telegram: ${c.telegram}
+      </a>
+      <a class="btn-contact btn-outline" href="https://${c.facebook}" target="_blank" rel="noopener">
+        <i class="ti ti-brand-facebook" aria-hidden="true"></i> Facebook
+      </a>
+    </div>
+    <div class="contact-hours">
+      <i class="ti ti-clock" aria-hidden="true"></i> Giờ làm việc: ${c.hours}
+    </div>
+  `;
+  return div;
+}
+
+/* ─── 10. FOOTER ───────────────────────────────────────────── */
+function renderFooter() {
+  const div = el('div', 'footer');
+  div.innerHTML = `© ${cfg.year} ${cfg.shopName} · Dịch vụ order trung gian Hàn – Nhật – Mỹ/EU`;
+  return div;
+}
+
+/* ─── RENDER ALL ───────────────────────────────────────────── */
+[
+  renderHero(),
+  renderSteps(),
+  renderServiceFees(),
+  renderShipping(),
+  renderCalc(),
+  renderPayment(),
+  renderRules(),
+  renderForbidden(),
+  renderContact(),
+  renderFooter(),
+].forEach(node => app.appendChild(node));
+</script>
+
+</body>
+</html>
